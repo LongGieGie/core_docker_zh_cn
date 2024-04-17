@@ -69,7 +69,7 @@ RUN git clone ${CORE_URL} && \
 RUN cd /opt/core/daemon && \
     PATH=$PATH:/root/.local/bin poetry source add --default mirrors ${PIP_URL}
 RUN cd /opt/core && \
-    sed -i 's#ospf_url = "${OSPF_URL_GITHUB}"#ospf_url = "${OSPF_URL}"#' tasks.py &&\
+    sed -i 's#${OSPF_URL_GITHUB}#${OSPF_URL}#' tasks.py &&\
     PATH=$PATH:/root/.local/bin inv install -v -p ${PREFIX} && \
     cd /opt && \
     rm -rf ospf-mdr
