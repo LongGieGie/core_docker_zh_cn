@@ -61,6 +61,10 @@ RUN apt install -y --no-install-recommends \
     protobuf-compiler git \
     dh-python python3-protobuf python3-setuptools
 
+# install extra utils
+RUN apt install -y --no-install-recommends \
+    bridge-utils net-tools
+
 # install core
 RUN git clone ${CORE_URL} && \
     cd /opt/core && \
