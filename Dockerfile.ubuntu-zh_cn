@@ -29,8 +29,13 @@ WORKDIR /opt
 RUN apt update -y && \
     apt install -y --no-install-recommends ca-certificates
 
-# copy tsinghua apt source
-COPY sources.list.tsinghua /etc/apt/sources.list
+# use tsinghua apt source
+RUN echo "\
+deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ jammy main restricted universe multiverse \n\
+deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ jammy-updates main restricted universe multiverse \n\
+deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ jammy-backports main restricted universe multiverse \n\
+deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ jammy-security main restricted universe multiverse \n\
+" > /etc/apt/sources.list
 
 # install core dependencies
 RUN apt update -y && \
@@ -50,8 +55,9 @@ RUN apt update -y && \
     iproute2 \
     iputils-ping \
     tcpdump \
-    python3-pip && \
-    pip config set global.index-url ${PIP_URL}
+    python3-pip
+
+RUN pip config set global.index-url ${PIP_URL}
 
 # install emane dependencies
 RUN apt install -y --no-install-recommends \
