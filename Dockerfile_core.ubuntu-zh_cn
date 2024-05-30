@@ -105,8 +105,6 @@ RUN wget ${PROTOC_URL} && \
     PATH=/opt/protoc/bin:$PATH make && \
     ${VENV_PATH}/bin/python -m pip install . && \
     cd /opt && \
-    rm -rf protoc && \
-    rm -rf emane && \
     rm -f protoc-${PROTOC_VERSION}-linux-x86_64.zip
 
 # install mgen and trpr
