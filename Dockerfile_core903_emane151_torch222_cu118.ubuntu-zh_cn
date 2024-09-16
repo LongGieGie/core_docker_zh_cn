@@ -1,0 +1,157 @@
+# syntax=docker/dockerfile:1
+FROM ubuntu:22.04
+LABEL Description="CORE Docker Ubuntu Image"
+
+ARG PREFIX=/usr/local
+ARG CORE_TAG=release-9.0.3
+ARG EMANE_TAG=v1.5.1
+ARG PROTOC_VERSION=3.19.6
+ARG GPSD_VERSION=3.25
+ARG OLSRD_BRANCH=master
+ARG VENV_PATH=/opt/core/venv
+
+ARG PIP_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+ARG CORE_URL_GITEE=https://gitee.com/LongGieGie/core.git
+ARG CORE_URL_GITHUB=https://github.com/coreemu/core.git
+ARG CORE_URL=${CORE_URL_GITEE}
+ARG PROTOC_URL_GITEE=https://gitee.com/LongGieGie/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip
+ARG PROTOC_URL_GITHUB=https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip
+ARG PROTOC_URL=${PROTOC_URL_GITEE}
+ARG EMANE_URL_GITEE=https://gitee.com/LongGieGie/emane.git
+ARG EMANE_URL_GITHUB=https://github.com/adjacentlink/emane.git
+ARG EMANE_URL=${EMANE_URL_GITEE}
+ARG OSPF_URL_GITEE=https://gitee.com/LongGieGie/ospf-mdr.git
+ARG OSPF_URL_GITHUB=https://github.com/USNavalResearchLaboratory/ospf-mdr.git
+ARG OSPF_URL=${OSPF_URL_GITEE}
+ARG MGEN_URL_GITHUB=https://github.com/USNavalResearchLaboratory/mgen.git
+ARG MGEN_URL_GITEE=https://gitee.com/LongGieGie/mgen.git
+ARG MGEN_URL=${MGEN_URL_GITEE}
+ARG TRPR_URL_GITHUB=https://github.com/USNavalResearchLaboratory/trpr.git
+ARG TRPR_URL_GITEE=https://gitee.com/LongGieGie/trpr.git
+ARG TRPR_URL=${TRPR_URL_GITEE}
+ARG GPSD_URL=http://download-mirror.savannah.gnu.org/releases/gpsd/gpsd-${GPSD_VERSION}.tar.gz
+ARG OLSRD_URL_GITHUB=https://github.com/OLSR/olsrd.git
+ARG OLSRD_URL_GITEE=https://gitee.com/LongGieGie/olsrd.git
+ARG OLSRD_URL=${OLSRD_URL_GITEE}
+
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PATH="$PATH:${VENV_PATH}/bin"
+WORKDIR /opt
+
+# install ca-certificates
+RUN apt update -y && \
+    apt install -y --no-install-recommends ca-certificates
+
+# use tsinghua apt source
+RUN echo "\
+deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ jammy main restricted universe multiverse \n\
+deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ jammy-updates main restricted universe multiverse \n\
+deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ jammy-backports main restricted universe multiverse \n\
+deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ jammy-security main restricted universe multiverse \n\
+" > /etc/apt/sources.list
+
+# install core dependencies
+RUN apt update -y && \
+    apt install -y --no-install-recommends \
+    ca-certificates \
+    git \
+    sudo \
+    wget \
+    tzdata \
+    libpcap-dev \
+    libpcre3-dev \
+    libprotobuf-dev \
+    libxml2-dev \
+    protobuf-compiler \
+    unzip \
+    uuid-dev \
+    iproute2 \
+    iputils-ping \
+    tcpdump \
+    python3-pip
+
+RUN pip config set global.index-url ${PIP_URL}
+
+# install emane dependencies
+RUN apt install -y --no-install-recommends \
+    gcc g++ autoconf automake libtool \
+    libxml2-dev libprotobuf-dev libpcap-dev \
+    libpcre3-dev uuid-dev debhelper pkg-config \
+    protobuf-compiler git \
+    dh-python python3-protobuf python3-setuptools
+
+# install extra utils
+RUN apt install -y --no-install-recommends \
+    bridge-utils net-tools iperf3
+
+# install core
+RUN cd /opt && \
+    git clone ${CORE_URL} && \
+    cd /opt/core && \
+    git checkout ${CORE_TAG} && \
+    ./setup.sh
+RUN cd /opt/core/daemon && \
+    PATH=$PATH:/root/.local/bin poetry source add --default mirrors ${PIP_URL}
+RUN cd /opt/core && \
+    sed -i 's#${OSPF_URL_GITHUB}#${OSPF_URL}#' tasks.py &&\
+    PATH=$PATH:/root/.local/bin inv install -v -p ${PREFIX}
+
+# install emane
+RUN cd /opt && \
+    wget ${PROTOC_URL} && \
+    mkdir protoc && \
+    unzip protoc-${PROTOC_VERSION}-linux-x86_64.zip -d protoc && \
+    git clone ${EMANE_URL} && \
+    cd /opt/emane && \
+    git checkout ${EMANE_TAG} && \
+    ./autogen.sh && \
+    ./configure --prefix=/usr && \
+    make -j$(nproc)  && \
+    make install && \
+    cd src/python && \
+    make clean && \
+    PATH=/opt/protoc/bin:$PATH make && \
+    ${VENV_PATH}/bin/python -m pip install . && \
+    cd /opt && \
+    rm -f protoc-${PROTOC_VERSION}-linux-x86_64.zip
+
+# install mgen and trpr
+RUN cd /opt && \
+    git clone ${MGEN_URL} && \
+    cd mgen && \
+    git submodule update --init && \
+    cd makefiles && \
+    make -f Makefile.linux && \
+    sudo ln -s /opt/mgen/makefiles/mgen /usr/local/bin/ && \
+    cd /opt && \
+    git clone ${TRPR_URL} && \
+    cd trpr && \
+    make -f Makefile.linux && \
+    sudo ln -s /opt/trpr/trpr /usr/local/bin/
+
+# install gpsd and olsrd
+RUN apt install -y --no-install-recommends \
+    gcc scons python3-gi python3-gi-cairo g++ \
+    libncurses5-dev libtinfo-dev pps-tools \
+    gir1.2-gtk-3.0 curl bison flex
+RUN cd /opt && \
+    wget ${GPSD_URL} && \
+    tar -xzf gpsd-${GPSD_VERSION}.tar.gz && \
+    cd /opt/gpsd-${GPSD_VERSION} && \
+    scons -c && scons && scons check && scons install
+RUN cd /opt && \
+    git clone ${OLSRD_URL} && \
+    cd /opt/olsrd && \
+    git checkout ${OLSRD_BRANCH} && \
+    make build_all -j$(nproc) && \
+    make install_all
+
+# install pytorch into core venv
+RUN ${VENV_PATH}/bin/python -m pip install torch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2 \
+    --index-url https://download.pytorch.org/whl/cu118
+
+# clean pip cache, maybe useful
+RUN pip cache purge
+
+WORKDIR /root

@@ -3,8 +3,11 @@ FROM ubuntu:22.04
 LABEL Description="CORE Docker Ubuntu Image"
 
 ARG PREFIX=/usr/local
-ARG BRANCH=master
+ARG CORE_TAG=release-9.0.3
+ARG EMANE_TAG=v1.5.1
 ARG PROTOC_VERSION=3.19.6
+ARG GPSD_VERSION=3.25
+ARG OLSRD_BRANCH=master
 ARG VENV_PATH=/opt/core/venv
 
 ARG PIP_URL=https://pypi.tuna.tsinghua.edu.cn/simple
@@ -26,6 +29,11 @@ ARG MGEN_URL=${MGEN_URL_GITEE}
 ARG TRPR_URL_GITHUB=https://github.com/USNavalResearchLaboratory/trpr.git
 ARG TRPR_URL_GITEE=https://gitee.com/LongGieGie/trpr.git
 ARG TRPR_URL=${TRPR_URL_GITEE}
+ARG GPSD_URL=http://download-mirror.savannah.gnu.org/releases/gpsd/gpsd-${GPSD_VERSION}.tar.gz
+ARG OLSRD_URL_GITHUB=https://github.com/OLSR/olsrd.git
+ARG OLSRD_URL_GITEE=https://gitee.com/LongGieGie/olsrd.git
+ARG OLSRD_URL=${OLSRD_URL_GITEE}
+
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PATH="$PATH:${VENV_PATH}/bin"
@@ -77,34 +85,19 @@ RUN apt install -y --no-install-recommends \
 RUN apt install -y --no-install-recommends \
     bridge-utils net-tools iperf3
 
-# install core
-RUN git clone ${CORE_URL} && \
-    cd /opt/core && \
-    git checkout ${BRANCH} && \
-    ./setup.sh
-RUN cd /opt/core/daemon && \
-    PATH=$PATH:/root/.local/bin poetry source add --default mirrors ${PIP_URL}
-RUN cd /opt/core && \
-    sed -i 's#${OSPF_URL_GITHUB}#${OSPF_URL}#' tasks.py &&\
-    PATH=$PATH:/root/.local/bin inv install -v -p ${PREFIX} && \
-    cd /opt && \
 
 # install emane
-RUN wget ${PROTOC_URL} && \
+RUN cd /opt && \
+    wget ${PROTOC_URL} && \
     mkdir protoc && \
     unzip protoc-${PROTOC_VERSION}-linux-x86_64.zip -d protoc && \
     git clone ${EMANE_URL} && \
-    cd emane && \
+    cd /opt/emane && \
+    git checkout ${EMANE_TAG} && \
     ./autogen.sh && \
     ./configure --prefix=/usr && \
     make -j$(nproc)  && \
-    make install && \
-    cd src/python && \
-    make clean && \
-    PATH=/opt/protoc/bin:$PATH make && \
-    ${VENV_PATH}/bin/python -m pip install . && \
-    cd /opt && \
-    rm -f protoc-${PROTOC_VERSION}-linux-x86_64.zip
+    make install
 
 # install mgen and trpr
 RUN cd /opt && \
@@ -118,13 +111,23 @@ RUN cd /opt && \
     git clone ${TRPR_URL} && \
     cd trpr && \
     make -f Makefile.linux && \
-    sudo ln -s /home/whl/gitrepos/trpr/trpr /usr/local/bin/
+    sudo ln -s /opt/trpr/trpr /usr/local/bin/
 
-# install pytorch into core venv
-RUN ${VENV_PATH}/bin/python -m pip install torch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2 \
-    --index-url https://download.pytorch.org/whl/cu118
-
-# clean pip cache, maybe useful
-RUN pip cache purge
+# install gpsd and olsrd
+RUN apt install -y --no-install-recommends \
+    gcc scons python3-gi python3-gi-cairo g++ \
+    libncurses5-dev libtinfo-dev pps-tools \
+    gir1.2-gtk-3.0 curl bison flex
+RUN cd /opt && \
+    wget ${GPSD_URL} && \
+    tar -xzf gpsd-${GPSD_VERSION}.tar.gz && \
+    cd /opt/gpsd-${GPSD_VERSION} && \
+    scons -c && scons && scons check && scons install
+RUN cd /opt && \
+    git clone ${OLSRD_URL} && \
+    cd /opt/olsrd && \
+    git checkout ${OLSRD_BRANCH} && \
+    make build_all -j$(nproc) && \
+    make install_all
 
 WORKDIR /root
