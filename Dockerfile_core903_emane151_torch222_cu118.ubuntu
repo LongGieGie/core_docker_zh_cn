@@ -147,6 +147,7 @@ RUN cd /opt && \
     git checkout ${OLSRD_BRANCH} && \
     make build_all -j$(nproc) && \
     make install_all
+COPY ./routing.conf /etc/olsrd/routing.conf
 
 # install pytorch into core venv
 RUN ${VENV_PATH}/bin/python -m pip install torch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2 \
