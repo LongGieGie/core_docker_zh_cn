@@ -127,5 +127,6 @@ RUN cd /opt && \
     git checkout ${OLSRD_BRANCH} && \
     make build_all -j$(nproc) && \
     make install_all
+COPY ./routing.conf /etc/olsrd/routing.conf
 
 WORKDIR /root
