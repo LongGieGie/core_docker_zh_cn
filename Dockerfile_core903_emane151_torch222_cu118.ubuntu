@@ -67,6 +67,7 @@ RUN apt update -y && \
     unzip \
     uuid-dev \
     iproute2 \
+    ethtool \
     iputils-ping \
     tcpdump \
     python3-pip

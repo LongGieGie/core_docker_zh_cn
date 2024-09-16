@@ -67,6 +67,7 @@ RUN apt update -y && \
     unzip \
     uuid-dev \
     iproute2 \
+    ethtool \
     iputils-ping \
     tcpdump \
     python3-pip
@@ -88,9 +89,6 @@ RUN apt install -y --no-install-recommends \
 
 # install emane
 RUN cd /opt && \
-    wget ${PROTOC_URL} && \
-    mkdir protoc && \
-    unzip protoc-${PROTOC_VERSION}-linux-x86_64.zip -d protoc && \
     git clone ${EMANE_URL} && \
     cd /opt/emane && \
     git checkout ${EMANE_TAG} && \
