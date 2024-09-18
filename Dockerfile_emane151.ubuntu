@@ -96,7 +96,7 @@ RUN cd /opt && \
     --localstatedir=/var/run/quagga && \
     make -j$(nproc) && \
     make install
-    
+
 # install emane
 RUN cd /opt && \
     git clone ${EMANE_URL} && \
