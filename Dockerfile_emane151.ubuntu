@@ -86,7 +86,17 @@ RUN apt install -y --no-install-recommends \
 RUN apt install -y --no-install-recommends \
     bridge-utils net-tools iperf3
 
-
+# install ospf-mdr
+RUN cd /opt && \
+    git clone ${OSPF_URL} && \
+    cd /opt/ospf-mdr && \
+    ./bootstrap.sh && \
+    ./configure --disable-doc --enable-user=root --enable-group=root \
+    --with-cflags=-ggdb --sysconfdir=/usr/local/etc/quagga --enable-vtysh \
+    --localstatedir=/var/run/quagga && \
+    make -j$(nproc) && \
+    make install
+    
 # install emane
 RUN cd /opt && \
     git clone ${EMANE_URL} && \
