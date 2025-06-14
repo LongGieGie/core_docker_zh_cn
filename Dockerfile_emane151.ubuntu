@@ -10,7 +10,7 @@ ARG GPSD_VERSION=3.25
 ARG OLSRD_BRANCH=master
 ARG VENV_PATH=/opt/core/venv
 
-ARG PIP_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+ARG PIP_URL=https://mirrors.aliyun.com/pypi/simple
 ARG CORE_URL_GITEE=https://gitee.com/LongGieGie/core.git
 ARG CORE_URL_GITHUB=https://github.com/coreemu/core.git
 ARG CORE_URL=${CORE_URL_GITEE}
@@ -51,61 +51,36 @@ deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ jammy-backports main restricted
 deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ jammy-security main restricted universe multiverse \n\
 " > /etc/apt/sources.list
 
-# install core dependencies
+# install emane dependencies
+# fix dependency with make deb
+# fix dependency with python3-emane
 RUN apt update -y && \
     apt install -y --no-install-recommends \
-    ca-certificates \
-    git \
-    sudo \
-    wget \
-    tzdata \
-    libpcap-dev \
-    libpcre3-dev \
-    libprotobuf-dev \
-    libxml2-dev \
-    protobuf-compiler \
-    unzip \
-    uuid-dev \
-    iproute2 \
-    ethtool \
-    iputils-ping \
-    tcpdump \
-    python3-pip
-
-RUN pip config set global.index-url ${PIP_URL}
-
-# install emane dependencies
-RUN apt install -y --no-install-recommends \
     gcc g++ autoconf automake libtool \
     libxml2-dev libprotobuf-dev libpcap-dev \
     libpcre3-dev uuid-dev debhelper pkg-config \
     protobuf-compiler git \
-    dh-python python3-protobuf python3-setuptools
+    dh-python python3-protobuf python3-setuptools \
+    build-essential \
+    python3-lxml python3-bs4 python3-html5lib \
+    python3-soupsieve python3-webencodings
 
 # install extra utils
-RUN apt install -y --no-install-recommends \
+RUN apt update -y && \
+    apt install -y --no-install-recommends \
     bridge-utils net-tools iperf3
-
-# install ospf-mdr
-RUN cd /opt && \
-    git clone ${OSPF_URL} && \
-    cd /opt/ospf-mdr && \
-    ./bootstrap.sh && \
-    ./configure --disable-doc --enable-user=root --enable-group=root \
-    --with-cflags=-ggdb --sysconfdir=/usr/local/etc/quagga --enable-vtysh \
-    --localstatedir=/var/run/quagga && \
-    make -j$(nproc) && \
-    make install
 
 # install emane
 RUN cd /opt && \
     git clone ${EMANE_URL} && \
     cd /opt/emane && \
     git checkout ${EMANE_TAG} && \
-    ./autogen.sh && \
-    ./configure --prefix=/usr && \
-    make -j$(nproc)  && \
-    make install
+    ./autogen.sh && ./configure --prefix=/usr
+RUN cd /opt/emane && \
+    make deb && \
+    cd /opt/emane/.debbuild/ && \
+    dpkg -i *.deb && \
+    rm -r /opt/emane/.debbuild/
 
 # install mgen and trpr
 RUN cd /opt && \
